@@ -2,14 +2,24 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { env } from '../config/env';
+import { getUploadDir } from '../config/uploads';
 
-const uploadPath = path.resolve(env.uploadDir);
-if (!fs.existsSync(uploadPath)) {
-  fs.mkdirSync(uploadPath, { recursive: true });
+function ensureUploadDir(dir: string) {
+  try {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  } catch (error) {
+    console.warn('Upload directory is not writable:', error);
+  }
 }
 
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadPath),
+  destination: (_req, _file, cb) => {
+    const uploadPath = getUploadDir();
+    ensureUploadDir(uploadPath);
+    cb(null, uploadPath);
+  },
   filename: (_req, file, cb) => {
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
     cb(null, `${uniqueSuffix}${path.extname(file.originalname)}`);

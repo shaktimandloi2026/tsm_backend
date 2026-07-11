@@ -2,9 +2,11 @@ import dns from 'dns';
 import mongoose from 'mongoose';
 import { env } from './env';
 
-// Windows/local networks often refuse SRV lookups used by mongodb+srv:// URIs.
-dns.setServers(['8.8.8.8', '1.1.1.1']);
-dns.setDefaultResultOrder('ipv4first');
+// Custom DNS helps local Windows SRV lookups; skip on Vercel managed runtime.
+if (!process.env.VERCEL) {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+  dns.setDefaultResultOrder('ipv4first');
+}
 
 interface MongooseCache {
   conn: typeof mongoose | null;
@@ -20,6 +22,14 @@ const cache: MongooseCache = global.mongooseCache ?? { conn: null, promise: null
 global.mongooseCache = cache;
 
 export const connectDatabase = async (): Promise<typeof mongoose> => {
+  if (process.env.VERCEL && !process.env.MONGODB_URI) {
+    throw new Error('MONGODB_URI is not configured in Vercel environment variables');
+  }
+
+  if (!env.mongodbUri) {
+    throw new Error('MONGODB_URI is not configured');
+  }
+
   if (cache.conn) return cache.conn;
 
   if (!cache.promise) {
